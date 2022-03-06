@@ -38,6 +38,7 @@ steps:
   inputs:
     command: 'destroy'
     workingDirectory: '$(System.DefaultWorkingDirectory)/configuration/iaac/azure/kubernetes'
+    environmentServiceName: 'azure-resource-manager-service-connection'
     allowTelemetryCollection: true
   displayName: 'Run a one-line script'
 
