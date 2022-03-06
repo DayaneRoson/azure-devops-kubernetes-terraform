@@ -1,0 +1,64 @@
+trigger:
+- main
+
+resources:
+- repo: self
+
+variables:
+  tag: '$(Build.BuildId)'
+
+#Stage 1
+#Build Docker Image
+#Publish k8s files
+
+stages:
+- stage: Build
+  displayName: Build image
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+     - task: Docker@2
+       inputs:
+         containerRegistry: 'dayroson-docker-hub'
+         repository: 'dayroson/currency-exchange-devops'
+         command: 'buildAndPush'
+         Dockerfile: '**/Dockerfile'
+         tags: '$(tag)'
+     - task: CopyFiles@2
+       inputs:
+          SourceFolder: '$(System.DefaultWorkingDirectory)'
+          Contents: '**/*.yaml'
+          TargetFolder: '$(Build.ArtifactStagingDirectory)'
+     - task: PublishBuildArtifacts@1
+       inputs:
+          PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+          ArtifactName: 'manifests'
+          publishLocation: 'Container'
+#Stage 2
+#Download the k8s files
+#Deploy to k8s cluster with Docker image
+
+- stage: Deploy
+  displayName: Deploy Image
+  jobs:
+  - job: Deploy
+    displayName: Deploy
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: 'current'
+        artifactName: 'manifests'
+        itemPattern: '**/*.yaml'
+        targetPath: '$(System.ArtifactsDirectory)'
+    - task: KubernetesManifest@0
+      inputs:
+        action: 'deploy'
+        kubernetesServiceConnection: 'azure-kubernetes-connection'
+        namespace: 'default'
+        manifests: '$(System.ArtifactsDirectory)/configuration/kubernetes/deployment.yaml'
+        containers: 'dayroson/currency-exchange-devops:$(tag)'
